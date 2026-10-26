@@ -1,0 +1,50 @@
+name: Build NERO Proxy APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform, build tools and NDK
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || echo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973"
+      - name: Fetch native engine (hev-socks5-tunnel)
+        run: |
+          chmod +x setup.sh
+          ./setup.sh
+          ls app/src/main/jni/hev-socks5-tunnel
+      - name: Download Gradle 8.9
+        run: |
+          curl -L -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          echo "/tmp/gradle-8.9/bin" >> "$GITHUB_PATH"
+      - name: Build debug APK
+        env:
+          ANDROID_NDK_HOME: "$ANDROID_HOME/ndk/27.0.12077973"
+        run: gradle assembleDebug --no-daemon
+      - name: Publish APK to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          ls -lh "$APK"
+          if gh release view v0.2.0 >/dev/null 2>&1; then
+            gh release upload v0.2.0 "$APK" --clobber
+          else
+            gh release create v0.2.0 "$APK" --title "NERO Proxy 0.2.0" --notes "Full-device SOCKS5/HTTP proxy VPN (VpnService + hev-socks5-tunnel + LocalBridge). Author states this version was written but NOT compiled/run/tested before upload, so install and test on a real phone. TCP only; UDP/QUIC/IPv6 not supported."
+          fi
