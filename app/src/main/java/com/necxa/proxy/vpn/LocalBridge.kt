@@ -65,7 +65,7 @@ class LocalBridge(
             inp.readUnsignedByte()
             val u = ByteArray(inp.readUnsignedByte()).also { inp.readFully(it) }
             val p = ByteArray(inp.readUnsignedByte()).also { inp.readFully(it) }
-            val ok = MessageDigest.isEqual(u, user.toByteArray()) & MessageDigest.isEqual(p, pass.toByteArray())
+            val ok = MessageDigest.isEqual(u, user.toByteArray()) and MessageDigest.isEqual(p, pass.toByteArray())
             o.write(byteArrayOf(1, if (ok) 0 else 1)); o.flush()
             if (!ok) return
             if (inp.readUnsignedByte() != 5) return
